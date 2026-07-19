@@ -3,27 +3,41 @@ import 'package:geolocator/geolocator.dart';
 class FakeGpsDetector {
   /// Devuelve true si se detecta Fake GPS, false si todo está bien.
   static Future<bool> isLocationMocked() async {
-    // Verificar que el servicio de ubicación esté activo
     bool serviceEnabled = await Geolocator.isLocationServiceEnabled();
-    if (!serviceEnabled) {
-      // Sin GPS activo no podemos validar, lo tratamos como sospechoso
-      return true;
-    }
 
-    // Pedir permisos si no los tenemos
     LocationPermission permission = await Geolocator.checkPermission();
     if (permission == LocationPermission.denied) {
       permission = await Geolocator.requestPermission();
-      if (permission == LocationPermission.denied ||
-          permission == LocationPermission.deniedForever) {
-        return true;
-      }
+    }
+    if (permission != LocationPermission.always &&
+        permission != LocationPermission.whileInUse) {
+      throw Exception('Permiso de ubicación no otorgado');
     }
 
-    // Obtener posición actual y revisar la bandera isMocked
-    Position pos = await Geolocator.getCurrentPosition(
-      locationSettings: const LocationSettings(accuracy: LocationAccuracy.high),
-    );
+    Position? pos;
+    if (serviceEnabled) {
+      try {
+        pos = await Geolocator.getCurrentPosition(
+          locationSettings: const LocationSettings(accuracy: LocationAccuracy.high),
+        ).timeout(
+          const Duration(seconds: 10),
+          onTimeout: () => throw Exception(
+              'No se pudo obtener una ubicación actual. Asegúrate de tener GPS activo y señal.'),
+        );
+      } catch (_) {
+        pos = await Geolocator.getLastKnownPosition();
+      }
+    } else {
+      pos = await Geolocator.getLastKnownPosition();
+    }
+
+    if (pos == null) {
+      final errorReason = serviceEnabled
+          ? 'No se pudo obtener una ubicación actual.'
+          : 'Servicio de ubicación desactivado o sin señal.';
+      throw Exception(
+          '$errorReason Activa el GPS y espera a que haya señal.');
+    }
 
     return pos.isMocked;
   }

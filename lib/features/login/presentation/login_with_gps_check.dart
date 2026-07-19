@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:my_app/features/location/data/fake_gps_detector.dart';
 import 'package:my_app/features/location/presentation/fake_gps_warning_screen.dart';
@@ -11,14 +13,40 @@ class LoginWithGpsCheck extends StatefulWidget {
   State<LoginWithGpsCheck> createState() => _LoginWithGpsCheckState();
 }
 
-class _LoginWithGpsCheckState extends State<LoginWithGpsCheck> {
+class _LoginWithGpsCheckState extends State<LoginWithGpsCheck>
+    with WidgetsBindingObserver {
   bool? _isFakeGps;
   bool _loading = true;
+  Timer? _monitorTimer;
 
   @override
   void initState() {
     super.initState();
+    WidgetsBinding.instance.addObserver(this);
     _initAndCheckGps();
+  }
+
+  @override
+  void dispose() {
+    _monitorTimer?.cancel();
+    WidgetsBinding.instance.removeObserver(this);
+    super.dispose();
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    super.didChangeAppLifecycleState(state);
+    if (state == AppLifecycleState.resumed && !_loading) {
+      _checkFakeGps(silent: true);
+    }
+  }
+
+  void _startFakeGpsMonitor() {
+    _monitorTimer?.cancel();
+    _monitorTimer = Timer.periodic(const Duration(seconds: 5), (_) {
+      if (!mounted || _loading || _isFakeGps == true) return;
+      _checkFakeGps(silent: true);
+    });
   }
 
   Future<void> _initAndCheckGps() async {
@@ -41,28 +69,43 @@ class _LoginWithGpsCheckState extends State<LoginWithGpsCheck> {
 
   String? _errorMsg;
 
-  Future<void> _checkFakeGps() async {
-    setState(() {
-      _loading = true;
-      _errorMsg = null;
-    });
+  Future<void> _checkFakeGps({bool silent = false}) async {
+    if (!silent) {
+      setState(() {
+        _loading = true;
+        _errorMsg = null;
+      });
+    }
     try {
       final isFake = await FakeGpsDetector.isLocationMocked().timeout(
         const Duration(seconds: 10),
         onTimeout: () => false,
       );
       if (!mounted) return;
-      setState(() {
-        _isFakeGps = isFake;
-        _loading = false;
-      });
+
+      if (isFake) {
+        setState(() {
+          _isFakeGps = true;
+          _loading = false;
+        });
+        return;
+      }
+
+      if (!silent) {
+        setState(() {
+          _isFakeGps = false;
+          _loading = false;
+        });
+        _startFakeGpsMonitor();
+      }
     } catch (e) {
       if (!mounted) return;
-      setState(() {
-        _errorMsg =
-            'No se pudo obtener la ubicación. Asegúrate de tener el GPS activo.';
-        _loading = false;
-      });
+      if (!silent) {
+        setState(() {
+          _errorMsg = e.toString().replaceFirst('Exception: ', '');
+          _loading = false;
+        });
+      }
     }
   }
 

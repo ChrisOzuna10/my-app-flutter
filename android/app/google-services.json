@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "1062951577761",
+    "project_id": "seguridad-e296c",
+    "storage_bucket": "seguridad-e296c.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:1062951577761:android:513995b945c8d3a3bbe8e0",
+        "android_client_info": {
+          "package_name": "com.example.my_app"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyAoavmb3hjeYKeQIYME997KvzLt4xm9P3w"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
