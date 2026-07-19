@@ -1,6 +1,5 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
-import 'package:flutter/foundation.dart';
 import 'dart:io';
 import 'dart:async';
 import 'package:flutter/scheduler.dart';
@@ -9,9 +8,16 @@ import 'package:flutter/scheduler.dart';
 const bool forceAdbCheck = bool.fromEnvironment('FORCE_ADB_CHECK', defaultValue: false);
 const MethodChannel securityChannel = MethodChannel('security_channel');
 
+bool shouldBlockForDeviceDebug({
+  required bool isDeviceInDevMode,
+  bool forceAdbCheckEnabled = false,
+}) {
+  return forceAdbCheckEnabled || isDeviceInDevMode;
+}
+
 class SecurityWrapper extends StatefulWidget {
   final Widget child;
-  const SecurityWrapper({Key? key, required this.child}) : super(key: key);
+  const SecurityWrapper({super.key, required this.child});
 
   @override
   State<SecurityWrapper> createState() => _SecurityWrapperState();
@@ -28,8 +34,8 @@ class _SecurityWrapperState extends State<SecurityWrapper>
     // Bloquea capturas de pantalla y grabación de video
     _setSecureScreen(true);
     // Verificación temprana de seguridad: comprobar si ADB está activo
-    // DESHABILITADO: comentado para permitir desarrollo en modo desarrollador
-    // _checkAdbAndBlockIfNeeded();
+    // Si la depuración USB está activa, la app debe bloquearse con un aviso y cierre.
+    _checkAdbAndBlockIfNeeded();
   }
 
   @override
@@ -91,8 +97,12 @@ class _SecurityWrapperState extends State<SecurityWrapper>
     try {
       final dynamic result = await platform.invokeMethod('isDeviceInDevMode');
       final bool blocked = result == true;
-      debugPrint('SecurityWrapper: initial isDeviceInDevMode -> $blocked');
-      if (blocked) {
+      final bool shouldBlock = shouldBlockForDeviceDebug(
+        isDeviceInDevMode: blocked,
+        forceAdbCheckEnabled: forceAdbCheck,
+      );
+      debugPrint('SecurityWrapper: initial isDeviceInDevMode -> $blocked, shouldBlock -> $shouldBlock');
+      if (shouldBlock) {
         SchedulerBinding.instance.addPostFrameCallback((_) {
           _showBlockingDialog();
         });
